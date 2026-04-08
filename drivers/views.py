@@ -28,6 +28,7 @@ except ModuleNotFoundError:
         return decorator
 
 from drivers.models import DriverProfile
+from drivers.permissions_navigation import require_nav_access
 from drivers.permissions import AuthenticatedReadWrite
 from drivers.serializers import CheckEvIdResultSerializer, DriverProfileSerializer, HealthSerializer
 
@@ -45,6 +46,10 @@ class DriverListCreateView(generics.ListCreateAPIView):
     queryset = DriverProfile.objects.all()
     serializer_class = DriverProfileSerializer
     permission_classes = [AuthenticatedReadWrite]
+
+    def get(self, request, *args, **kwargs):
+        require_nav_access(request, "drivers")
+        return super().get(request, *args, **kwargs)
 
 
 class DriverDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -75,6 +80,10 @@ class DriverDetailView(generics.RetrieveUpdateDestroyAPIView):
         self.check_object_permissions(self.request, obj)
         return obj
 
+    def get(self, request, *args, **kwargs):
+        require_nav_access(request, "drivers")
+        return super().get(request, *args, **kwargs)
+
 
 class CheckEvIdView(APIView):
     permission_classes = [AuthenticatedReadWrite]
@@ -87,6 +96,7 @@ class CheckEvIdView(APIView):
         responses={200: CheckEvIdResultSerializer},
     )
     def get(self, request):
+        require_nav_access(request, "drivers")
         company_id = request.query_params.get("company_id")
         ev_id = request.query_params.get("ev_id")
         if not company_id or not ev_id:
