@@ -47,6 +47,13 @@ class DriverListCreateView(generics.ListCreateAPIView):
     serializer_class = DriverProfileSerializer
     permission_classes = [AuthenticatedReadWrite]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        external_user_name = self.request.query_params.get("external_user_name")
+        if external_user_name:
+            queryset = queryset.filter(external_user_name=external_user_name)
+        return queryset
+
     def get(self, request, *args, **kwargs):
         require_nav_access(request, "drivers")
         return super().get(request, *args, **kwargs)

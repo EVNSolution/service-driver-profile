@@ -20,6 +20,7 @@ class DriverProfileSerializer(serializers.ModelSerializer):
             "company_id",
             "fleet_id",
             "name",
+            "external_user_name",
             "ev_id",
             "phone_number",
             "address",

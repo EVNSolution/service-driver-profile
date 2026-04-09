@@ -24,6 +24,7 @@ class DriverProfile(models.Model):
     company_id = models.UUIDField()
     fleet_id = models.UUIDField()
     name = models.CharField(max_length=255)
+    external_user_name = models.CharField(max_length=120, blank=True, default="")
     ev_id = models.CharField(max_length=64)
     phone_number = models.CharField(max_length=32)
     address = models.CharField(max_length=255)

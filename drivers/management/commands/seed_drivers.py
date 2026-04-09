@@ -20,6 +20,7 @@ class Command(BaseCommand):
                 "company_id": SAMPLE_COMPANY_ID,
                 "fleet_id": SAMPLE_FLEET_ID,
                 "name": "Seed Driver",
+                "external_user_name": "seed-driver",
                 "ev_id": "EV-001",
                 "phone_number": "010-1234-5678",
                 "address": "Seoul",

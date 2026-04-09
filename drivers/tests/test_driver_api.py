@@ -12,6 +12,8 @@ class DriverApiTests(TestCase):
         self.client = APIClient()
         self.user_token = self._issue_token("user", allowed_nav_keys=["drivers"])
         self.admin_token = self._issue_token("admin", allowed_nav_keys=["drivers"])
+        self.company_id = uuid4()
+        self.fleet_id = uuid4()
 
     def _issue_token(self, role: str, *, allowed_nav_keys: list[str] | None = None) -> str:
         now = datetime.now(timezone.utc)
@@ -33,10 +35,10 @@ class DriverApiTests(TestCase):
     def _authenticate(self, token: str) -> None:
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
-    def _payload(self):
-        return {
-            "company_id": str(uuid4()),
-            "fleet_id": str(uuid4()),
+    def _payload(self, **overrides):
+        payload = {
+            "company_id": str(self.company_id),
+            "fleet_id": str(self.fleet_id),
             "name": "Kim Driver",
             "ev_id": "EV-001",
             "phone_number": "010-1234-5678",
@@ -44,6 +46,8 @@ class DriverApiTests(TestCase):
             "employment_status": "active",
             "qualification_status": "qualified",
         }
+        payload.update(overrides)
+        return payload
 
     def test_health_endpoint_responds(self):
         response = self.client.get("/health/")
@@ -131,6 +135,43 @@ class DriverApiTests(TestCase):
         self.assertIn("route_no", response.data)
         self.assertEqual(response.data["employment_status"], "active")
         self.assertEqual(response.data["qualification_status"], "qualified")
+
+    def test_driver_create_accepts_external_user_name(self):
+        self._authenticate(self.user_token)
+
+        response = self.client.post(
+            "/",
+            self._payload(external_user_name="ZD홍길동"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["external_user_name"], "ZD홍길동")
+
+    def test_driver_list_filters_by_external_user_name(self):
+        self._authenticate(self.user_token)
+        self.assertEqual(
+            self.client.post(
+                "/",
+                self._payload(name="Kim Driver", ev_id="EV-001", external_user_name="ZD홍길동"),
+                format="json",
+            ).status_code,
+            201,
+        )
+        self.assertEqual(
+            self.client.post(
+                "/",
+                self._payload(name="Lee Driver", ev_id="EV-002", external_user_name="ZD이순신"),
+                format="json",
+            ).status_code,
+            201,
+        )
+
+        response = self.client.get("/", {"external_user_name": "ZD홍길동"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["external_user_name"], "ZD홍길동")
 
     def test_missing_driver_returns_404_shape(self):
         self._authenticate(self.user_token)
