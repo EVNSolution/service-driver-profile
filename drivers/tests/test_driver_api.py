@@ -258,6 +258,27 @@ class DriverApiTests(TestCase):
         self.assertEqual(created_driver["phone_number"], "")
         self.assertEqual(created_driver["address"], "")
 
+    def test_ensure_external_users_returns_contextual_invalid_request_message(self):
+        self._authenticate(self.user_token)
+
+        response = self.client.post(
+            "/ensure-external-users/",
+            {
+                "company_id": str(self.company_id),
+                "fleet_id": str(self.fleet_id),
+                "external_user_names": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["code"], "invalid_request")
+        self.assertEqual(
+            response.data["message"],
+            "Driver auto-create requires company_id, fleet_id, and at least one external_user_name.",
+        )
+        self.assertIn("external_user_names", response.data["details"])
+
     def test_missing_driver_returns_404_shape(self):
         self._authenticate(self.user_token)
         response = self.client.get("/999999/")

@@ -138,7 +138,15 @@ class EnsureExternalUsersView(APIView):
     )
     def post(self, request):
         serializer = EnsureExternalUsersRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    "code": "invalid_request",
+                    "message": "Driver auto-create requires company_id, fleet_id, and at least one external_user_name.",
+                    "details": serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         company_id = serializer.validated_data["company_id"]
         fleet_id = serializer.validated_data["fleet_id"]
         external_user_names = serializer.validated_data["external_user_names"]

@@ -8,6 +8,7 @@ _ERROR_CODE_MAP = {
     status.HTTP_401_UNAUTHORIZED: "authentication_failed",
     status.HTTP_403_FORBIDDEN: "permission_denied",
     status.HTTP_404_NOT_FOUND: "not_found",
+    status.HTTP_405_METHOD_NOT_ALLOWED: "method_not_allowed",
     status.HTTP_500_INTERNAL_SERVER_ERROR: "server_error",
 }
 
