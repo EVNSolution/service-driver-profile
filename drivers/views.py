@@ -1,5 +1,4 @@
 import uuid
-import re
 
 from django.http import Http404
 from django.db import transaction
@@ -30,6 +29,7 @@ except ModuleNotFoundError:
         return decorator
 
 from drivers.models import DriverProfile
+from drivers.name_utils import derive_driver_name_from_external_user_name
 from drivers.permissions_navigation import require_nav_access
 from drivers.permissions import AuthenticatedReadWrite
 from drivers.serializers import (
@@ -39,20 +39,6 @@ from drivers.serializers import (
     EnsureExternalUsersResponseSerializer,
     HealthSerializer,
 )
-
-
-_NON_HANGUL_PATTERN = re.compile(r"[^가-힣\s]+")
-_WHITESPACE_PATTERN = re.compile(r"\s+")
-
-
-def derive_driver_name_from_external_user_name(external_user_name: str) -> str:
-    normalized_external_name = external_user_name.strip()
-    hangul_only_name = _WHITESPACE_PATTERN.sub(
-        " ",
-        _NON_HANGUL_PATTERN.sub(" ", normalized_external_name),
-    ).strip()
-    return hangul_only_name or normalized_external_name
-
 
 class HealthView(APIView):
     authentication_classes = []

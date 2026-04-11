@@ -6,4 +6,5 @@ if [ "$#" -gt 0 ]; then
 fi
 
 python manage.py migrate --noinput
+python manage.py normalize_driver_names_from_external_users --apply
 exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers "${GUNICORN_WORKERS:-2}" --timeout "${GUNICORN_TIMEOUT:-60}"
