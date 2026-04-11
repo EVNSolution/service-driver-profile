@@ -253,10 +253,29 @@ class DriverApiTests(TestCase):
         created_driver = next(
             driver for driver in response.data["drivers"] if driver["external_user_name"] == "ZD신규기사"
         )
-        self.assertEqual(created_driver["name"], "ZD신규기사")
+        self.assertEqual(created_driver["name"], "신규기사")
         self.assertEqual(created_driver["ev_id"], "")
         self.assertEqual(created_driver["phone_number"], "")
         self.assertEqual(created_driver["address"], "")
+
+    def test_ensure_external_users_falls_back_to_original_name_when_hangul_is_missing(self):
+        self._authenticate(self.user_token)
+
+        response = self.client.post(
+            "/ensure-external-users/",
+            {
+                "company_id": str(self.company_id),
+                "fleet_id": str(self.fleet_id),
+                "external_user_names": ["KOKUSHIBO"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created_driver = next(
+            driver for driver in response.data["drivers"] if driver["external_user_name"] == "KOKUSHIBO"
+        )
+        self.assertEqual(created_driver["name"], "KOKUSHIBO")
 
     def test_ensure_external_users_returns_contextual_invalid_request_message(self):
         self._authenticate(self.user_token)
