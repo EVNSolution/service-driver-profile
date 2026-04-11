@@ -1,6 +1,7 @@
 import uuid
 
 from django.http import Http404
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
@@ -30,7 +31,13 @@ except ModuleNotFoundError:
 from drivers.models import DriverProfile
 from drivers.permissions_navigation import require_nav_access
 from drivers.permissions import AuthenticatedReadWrite
-from drivers.serializers import CheckEvIdResultSerializer, DriverProfileSerializer, HealthSerializer
+from drivers.serializers import (
+    CheckEvIdResultSerializer,
+    DriverProfileSerializer,
+    EnsureExternalUsersRequestSerializer,
+    EnsureExternalUsersResponseSerializer,
+    HealthSerializer,
+)
 
 
 class HealthView(APIView):
@@ -50,8 +57,14 @@ class DriverListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = super().get_queryset()
         external_user_name = self.request.query_params.get("external_user_name")
+        company_id = self.request.query_params.get("company_id")
+        fleet_id = self.request.query_params.get("fleet_id")
         if external_user_name:
             queryset = queryset.filter(external_user_name=external_user_name)
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+        if fleet_id:
+            queryset = queryset.filter(fleet_id=fleet_id)
         return queryset
 
     def get(self, request, *args, **kwargs):
@@ -114,3 +127,57 @@ class CheckEvIdView(APIView):
 
         is_duplicate = DriverProfile.objects.filter(company_id=company_id, ev_id=ev_id).exists()
         return Response({"is_duplicate": is_duplicate})
+
+
+class EnsureExternalUsersView(APIView):
+    permission_classes = [AuthenticatedReadWrite]
+
+    @extend_schema(
+        request=EnsureExternalUsersRequestSerializer,
+        responses={200: EnsureExternalUsersResponseSerializer},
+    )
+    def post(self, request):
+        serializer = EnsureExternalUsersRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company_id = serializer.validated_data["company_id"]
+        fleet_id = serializer.validated_data["fleet_id"]
+        external_user_names = serializer.validated_data["external_user_names"]
+
+        existing_drivers = DriverProfile.objects.filter(
+            company_id=company_id,
+            fleet_id=fleet_id,
+            external_user_name__in=external_user_names,
+        ).order_by("route_no", "driver_id")
+        driver_by_external_name: dict[str, DriverProfile] = {}
+        for driver in existing_drivers:
+            driver_by_external_name.setdefault(driver.external_user_name, driver)
+
+        created_external_user_names: list[str] = []
+        existing_external_user_names: list[str] = []
+        with transaction.atomic():
+            for external_user_name in external_user_names:
+                existing_driver = driver_by_external_name.get(external_user_name)
+                if existing_driver is not None:
+                    existing_external_user_names.append(external_user_name)
+                    continue
+
+                created_driver = DriverProfile.objects.create(
+                    company_id=company_id,
+                    fleet_id=fleet_id,
+                    name=external_user_name,
+                    external_user_name=external_user_name,
+                    ev_id="",
+                    phone_number="",
+                    address="",
+                )
+                driver_by_external_name[external_user_name] = created_driver
+                created_external_user_names.append(external_user_name)
+
+        ordered_drivers = [driver_by_external_name[external_user_name] for external_user_name in external_user_names]
+        return Response(
+            {
+                "drivers": DriverProfileSerializer(ordered_drivers, many=True).data,
+                "created_external_user_names": created_external_user_names,
+                "existing_external_user_names": existing_external_user_names,
+            }
+        )

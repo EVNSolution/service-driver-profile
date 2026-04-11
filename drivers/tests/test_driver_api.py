@@ -173,6 +173,91 @@ class DriverApiTests(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["external_user_name"], "ZD홍길동")
 
+    def test_driver_list_filters_by_external_user_name_and_scope(self):
+        self._authenticate(self.user_token)
+        other_company_id = uuid4()
+        other_fleet_id = uuid4()
+        self.assertEqual(
+            self.client.post(
+                "/",
+                self._payload(external_user_name="ZD홍길동"),
+                format="json",
+            ).status_code,
+            201,
+        )
+        self.assertEqual(
+            self.client.post(
+                "/",
+                self._payload(
+                    company_id=str(self.company_id),
+                    fleet_id=str(other_fleet_id),
+                    ev_id="EV-002",
+                    name="Kim Driver 2",
+                    external_user_name="ZD홍길동",
+                ),
+                format="json",
+            ).status_code,
+            201,
+        )
+        self.assertEqual(
+            self.client.post(
+                "/",
+                self._payload(
+                    company_id=str(other_company_id),
+                    fleet_id=str(other_fleet_id),
+                    ev_id="EV-003",
+                    name="Kim Driver 3",
+                    external_user_name="ZD홍길동",
+                ),
+                format="json",
+            ).status_code,
+            201,
+        )
+
+        response = self.client.get(
+            "/",
+            {
+                "external_user_name": "ZD홍길동",
+                "company_id": str(self.company_id),
+                "fleet_id": str(self.fleet_id),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["fleet_id"], str(self.fleet_id))
+
+    def test_ensure_external_users_creates_missing_profiles_for_scope(self):
+        self._authenticate(self.user_token)
+        existing_response = self.client.post(
+            "/",
+            self._payload(external_user_name="ZD기존기사"),
+            format="json",
+        )
+        self.assertEqual(existing_response.status_code, 201)
+
+        response = self.client.post(
+            "/ensure-external-users/",
+            {
+                "company_id": str(self.company_id),
+                "fleet_id": str(self.fleet_id),
+                "external_user_names": ["ZD기존기사", "ZD신규기사"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["created_external_user_names"], ["ZD신규기사"])
+        self.assertEqual(response.data["existing_external_user_names"], ["ZD기존기사"])
+        self.assertEqual(len(response.data["drivers"]), 2)
+        created_driver = next(
+            driver for driver in response.data["drivers"] if driver["external_user_name"] == "ZD신규기사"
+        )
+        self.assertEqual(created_driver["name"], "ZD신규기사")
+        self.assertEqual(created_driver["ev_id"], "")
+        self.assertEqual(created_driver["phone_number"], "")
+        self.assertEqual(created_driver["address"], "")
+
     def test_missing_driver_returns_404_shape(self):
         self._authenticate(self.user_token)
         response = self.client.get("/999999/")
