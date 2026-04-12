@@ -1,5 +1,6 @@
 import uuid
 
+from django.core.paginator import EmptyPage, Paginator
 from django.http import Http404
 from django.db import transaction
 from django.db.models import Q
@@ -65,11 +66,51 @@ class DriverListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(company_id=company_id)
         if fleet_id:
             queryset = queryset.filter(fleet_id=fleet_id)
-        return queryset
+        return queryset.order_by("route_no", "driver_id")
 
     def get(self, request, *args, **kwargs):
         require_nav_access(request, "drivers")
         return super().get(request, *args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = request.query_params.get("page")
+        page_size = request.query_params.get("page_size")
+
+        if page is None and page_size is None:
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+        try:
+            page_number = int(page or "1")
+            page_limit = int(page_size or "10")
+            if page_number < 1 or page_limit < 1:
+                raise ValueError
+        except ValueError:
+            return Response(
+                {
+                    "code": "invalid_request",
+                    "message": "page and page_size must be positive integers.",
+                    "details": {},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        paginator = Paginator(queryset, page_limit)
+        try:
+            page_obj = paginator.page(page_number)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages or 1)
+
+        serializer = self.get_serializer(page_obj.object_list, many=True)
+        return Response(
+            {
+                "count": paginator.count,
+                "page": page_obj.number,
+                "page_size": page_limit,
+                "results": serializer.data,
+            }
+        )
 
 
 class DriverDetailView(generics.RetrieveUpdateDestroyAPIView):

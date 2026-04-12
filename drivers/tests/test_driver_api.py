@@ -227,6 +227,28 @@ class DriverApiTests(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["fleet_id"], str(self.fleet_id))
 
+    def test_driver_list_returns_paginated_shape_when_page_params_are_present(self):
+        self._authenticate(self.user_token)
+        for index in range(12):
+            response = self.client.post(
+                "/",
+                self._payload(
+                    name=f"Driver {index + 1}",
+                    ev_id=f"EV-{index + 1:03d}",
+                    external_user_name=f"ZD기사{index + 1}",
+                ),
+                format="json",
+            )
+            self.assertEqual(response.status_code, 201)
+
+        response = self.client.get("/", {"page": 2, "page_size": 10})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 12)
+        self.assertEqual(response.data["page"], 2)
+        self.assertEqual(response.data["page_size"], 10)
+        self.assertEqual(len(response.data["results"]), 2)
+
     def test_ensure_external_users_creates_missing_profiles_for_scope(self):
         self._authenticate(self.user_token)
         existing_response = self.client.post(
