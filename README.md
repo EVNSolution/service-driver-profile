@@ -1,5 +1,7 @@
 # service-driver-profile
 
+## Purpose / Boundary
+
 이 repo는 배송원 기본 `profile` 정본을 소유한다.
 
 현재 역할:
@@ -20,6 +22,35 @@
 - vehicle assignment 로직
 - 플랫폼 전체 compose와 gateway 설정
 
-아키텍처 정본:
+## Runtime Contract / Local Role
+
+- compose service는 `driver-profile-api` 다.
+- gateway prefix는 `/api/drivers/` 다.
+- driver profile truth만 소유하고, auth/org/assignment는 참조만 한다.
+
+## Local Run / Verification
+
+- local run: `python3 manage.py runserver 0.0.0.0:8000`
+- local test: `python3 manage.py test -v 2`
+
+## Image Build / Deploy Contract
+
+- GitHub Actions workflow 이름은 `Build service-driver-profile image`다.
+- workflow는 immutable `service-driver-profile:<sha>` 이미지를 ECR로 publish 한다.
+- shared ECS deploy, ALB, ACM, Route53 관리는 `../infra-ev-dashboard-platform/` 이 소유한다.
+
+## Environment Files And Safety Notes
+
+- profile truth와 account/auth truth를 같은 repo에서 바꾸지 않는다.
+- downstream UI는 driver profile을 넓게 읽지만, write truth는 이 service boundary 안에만 둔다.
+
+## Key Tests Or Verification Commands
+
+- full Django tests: `python3 manage.py test -v 2`
+- external smoke는 `/api/drivers/` protected read path를 포함하는 편이 낫다.
+
+## Root Docs / Runbooks
+
 - `../../docs/boundaries/`
 - `../../docs/mappings/`
+- `../../docs/runbooks/ev-dashboard-ui-smoke-and-decommission.md`
